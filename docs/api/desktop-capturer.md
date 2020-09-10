@@ -147,6 +147,8 @@ used with [`navigator.mediaDevices.getUserMedia`].
 The identifier is **only valid for 10 seconds**.
 The identifier may be empty if not requested from a renderer process.
 
+> **NOTE:** This method is only callable from the main process.
+
 [`navigator.mediaDevices.getUserMedia`]: https://developer.mozilla.org/en/docs/Web/API/MediaDevices/getUserMedia
 [`systemPreferences.getMediaAccessStatus`]: system-preferences.md#systempreferencesgetmediaaccessstatusmediatype-macos
 
