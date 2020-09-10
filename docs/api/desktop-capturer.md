@@ -76,9 +76,9 @@ This example shows how to capture a video from a [WebContents](web-contents.md)
 
 ```javascript
 // In the renderer process.
-const { desktopCapturer, remote } = require('electron')
+const { ipcRenderer } = require('electron')
 
-desktopCapturer.getMediaSourceIdForWebContents(remote.getCurrentWebContents().id).then(async mediaSourceId => {
+ipcRenderer.invoke('get-my-video').then(async (mediaSourceId) => {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
@@ -113,6 +113,13 @@ function handleStream (stream) {
 function handleError (e) {
   console.log(e)
 }
+
+// In the main process.
+const { desktopCapturer, ipcMain } = require('electron')
+
+ipcMain.handle('get-my-video', (event) => {
+  return desktopCapturer.getMediaSourceIdForWebContents(event.sender.id)
+})
 ```
 
 
