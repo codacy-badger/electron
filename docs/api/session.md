@@ -295,6 +295,9 @@ Sets the proxy settings.
 When `pacScript` and `proxyRules` are provided together, the `proxyRules`
 option is ignored and `pacScript` configuration is applied.
 
+You may need `ses.closeAllConnections` to close currently in flight connections to prevent
+pooled sockets using previous proxy from being reused by future requests.
+
 The `proxyRules` has to follow the rules below:
 
 ```sh
@@ -403,6 +406,12 @@ window.webContents.session.enableNetworkEmulation({ offline: true })
   * `numSockets` Number (optional) - number of sockets to preconnect. Must be between 1 and 6. Defaults to 1.
 
 Preconnects the given number of sockets to an origin.
+
+#### `ses.closeAllConnections()`
+
+Returns `Promise<void>` - Resolves when all connections are closed.
+
+**Note:** It will terminate / fail all requests currently in flight.
 
 #### `ses.disableNetworkEmulation()`
 
@@ -565,11 +574,20 @@ Returns `String` - The user agent for this session.
 #### `ses.setSSLConfig(config)`
 
 * `config` Object
-  * `minVersion` String - Can be `tls1`, `tls1.1`, `tls1.2` or `tls1.3`. The
+  * `minVersion` String (optional) - Can be `tls1`, `tls1.1`, `tls1.2` or `tls1.3`. The
     minimum SSL version to allow when connecting to remote servers. Defaults to
     `tls1`.
-  * `maxVersion` String - Can be `tls1.2` or `tls1.3`. The maximum SSL version
+  * `maxVersion` String (optional) - Can be `tls1.2` or `tls1.3`. The maximum SSL version
     to allow when connecting to remote servers. Defaults to `tls1.3`.
+  * `disabledCipherSuites` Integer[] (optional) - List of cipher suites which
+    should be explicitly prevented from being used in addition to those
+    disabled by the net built-in policy.
+    Supported literal forms: 0xAABB, where AA is `cipher_suite[0]` and BB is
+    `cipher_suite[1]`, as defined in RFC 2246, Section 7.4.1.2. Unrecognized but
+    parsable cipher suites in this form will not return an error.
+    Ex: To disable TLS_RSA_WITH_RC4_128_MD5, specify 0x0004, while to
+    disable TLS_ECDH_ECDSA_WITH_RC4_128_SHA, specify 0xC002.
+    Note that TLSv1.3 ciphers cannot be disabled using this mechanism.
 
 Sets the SSL configuration for the session. All subsequent network requests
 will use the new configuration. Existing network connections (such as WebSocket
@@ -756,7 +774,7 @@ The following properties are available on instances of `Session`:
 #### `ses.availableSpellCheckerLanguages` _Readonly_
 
 A `String[]` array which consists of all the known available spell checker languages.  Providing a language
-code to the `setSpellCheckerLanaguages` API that isn't in this array will result in an error.
+code to the `setSpellCheckerLanguages` API that isn't in this array will result in an error.
 
 #### `ses.cookies` _Readonly_
 
@@ -780,12 +798,12 @@ const path = require('path')
 
 app.whenReady().then(() => {
   const protocol = session.fromPartition('some-partition').protocol
-  protocol.registerFileProtocol('atom', (request, callback) => {
+  if (!protocol.registerFileProtocol('atom', (request, callback) => {
     const url = request.url.substr(7)
     callback({ path: path.normalize(`${__dirname}/${url}`) })
-  }, (error) => {
-    if (error) console.error('Failed to register protocol')
-  })
+  })) {
+    console.error('Failed to register protocol')
+  }
 })
 ```
 

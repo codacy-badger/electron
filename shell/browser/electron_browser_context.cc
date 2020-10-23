@@ -228,7 +228,7 @@ void ElectronBrowserContext::InitPrefs() {
   auto* current_dictionaries =
       prefs()->Get(spellcheck::prefs::kSpellCheckDictionaries);
   // No configured dictionaries, the default will be en-US
-  if (current_dictionaries->GetList().size() == 0) {
+  if (current_dictionaries->GetList().empty()) {
     std::string default_code = spellcheck::GetCorrespondingSpellCheckLanguage(
         base::i18n::GetConfiguredLocale());
     if (!default_code.empty()) {
@@ -337,8 +337,8 @@ ElectronBrowserContext::GetURLLoaderFactory() {
       ->WillCreateURLLoaderFactory(
           this, nullptr, -1,
           content::ContentBrowserClient::URLLoaderFactoryType::kNavigation,
-          url::Origin(), base::nullopt, &factory_receiver, &header_client,
-          nullptr, nullptr, nullptr);
+          url::Origin(), base::nullopt, base::kInvalidUkmSourceId,
+          &factory_receiver, &header_client, nullptr, nullptr, nullptr);
 
   network::mojom::URLLoaderFactoryParamsPtr params =
       network::mojom::URLLoaderFactoryParams::New();

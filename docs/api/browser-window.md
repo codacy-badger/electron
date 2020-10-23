@@ -398,6 +398,11 @@ It creates a new `BrowserWindow` with native properties as set by the `options`.
       * `bypassHeatCheck` - Bypass code caching heuristics but with lazy compilation
       * `bypassHeatCheckAndEagerCompile` - Same as above except compilation is eager.
       Default policy is `code`.
+    * `enablePreferredSizeMode` Boolean (optional) - Whether to enable
+      preferred size mode. The preferred size is the minimum size needed to
+      contain the layout of the document—without requiring scrolling. Enabling
+      this will cause the `preferred-size-changed` event to be emitted on the
+      `WebContents` when the preferred size changes. Default is `false`.
 
 When setting minimum or maximum window size with `minWidth`/`maxWidth`/
 `minHeight`/`maxHeight`, it only constrains the users. It won't prevent you from
@@ -666,6 +671,20 @@ Emitted when the window has closed a sheet.
 #### Event: 'new-window-for-tab' _macOS_
 
 Emitted when the native new tab button is clicked.
+
+#### Event: 'system-context-menu' _Windows_
+
+Returns:
+
+* `event` Event
+* `point` [Point](structures/point.md) - The screen coordinates the context menu was triggered at
+
+Emitted when the system context menu is triggered on the window, this is
+normally only triggered when the user right clicks on the non-client area
+of your window.  This is the window titlebar or any area you have declared
+as `-webkit-app-region: drag` in a frameless window.
+
+Calling `event.preventDefault()` will prevent the menu from being displayed.
 
 ### Static Methods
 
@@ -1438,7 +1457,7 @@ Captures a snapshot of the page within `rect`. Omitting `rect` will capture the 
   * `httpReferrer` (String | [Referrer](structures/referrer.md)) (optional) - An HTTP Referrer URL.
   * `userAgent` String (optional) - A user agent originating the request.
   * `extraHeaders` String (optional) - Extra headers separated by "\n"
-  * `postData` ([UploadRawData[]](structures/upload-raw-data.md) | [UploadFile[]](structures/upload-file.md) | [UploadBlob[]](structures/upload-blob.md)) (optional)
+  * `postData` ([UploadRawData[]](structures/upload-raw-data.md) | [UploadFile[]](structures/upload-file.md)) (optional)
   * `baseURLForDataURL` String (optional) - Base URL (with trailing path separator) for files to be loaded by the data URL. This is needed only if the specified `url` is a data URL and needs to load other files.
 
 Returns `Promise<void>` - the promise will resolve when the page has finished loading
@@ -1720,7 +1739,9 @@ events.
 Prevents the window contents from being captured by other apps.
 
 On macOS it sets the NSWindow's sharingType to NSWindowSharingNone.
-On Windows it calls SetWindowDisplayAffinity with `WDA_MONITOR`.
+On Windows it calls SetWindowDisplayAffinity with `WDA_EXCLUDEFROMCAPTURE`.
+For Windows 10 version 2004 and up the window will be removed from capture entirely,
+older Windows versions behave as if `WDA_MONITOR` is applied capturing a black window.
 
 #### `win.setFocusable(focusable)` _macOS_ _Windows_
 

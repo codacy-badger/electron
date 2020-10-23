@@ -62,6 +62,7 @@
 #include "shell/browser/api/electron_api_browser_window.h"
 #include "shell/browser/api/electron_api_debugger.h"
 #include "shell/browser/api/electron_api_session.h"
+#include "shell/browser/api/electron_api_web_frame_main.h"
 #include "shell/browser/api/message_port.h"
 #include "shell/browser/browser.h"
 #include "shell/browser/child_web_contents_tracker.h"
@@ -87,6 +88,7 @@
 #include "shell/common/gin_converters/callback_converter.h"
 #include "shell/common/gin_converters/content_converter.h"
 #include "shell/common/gin_converters/file_path_converter.h"
+#include "shell/common/gin_converters/frame_converter.h"
 #include "shell/common/gin_converters/gfx_converter.h"
 #include "shell/common/gin_converters/gurl_converter.h"
 #include "shell/common/gin_converters/image_converter.h"
@@ -404,7 +406,7 @@ base::string16 GetDefaultPrinterAsync() {
   if (printer_name.empty()) {
     printing::PrinterList printers;
     print_backend->EnumeratePrinters(&printers);
-    if (printers.size() > 0)
+    if (!printers.empty())
       printer_name = printers.front().printer_name;
   }
   return base::UTF8ToUTF16(printer_name);
@@ -823,8 +825,7 @@ void WebContents::AddNewContents(
            initial_rect.x(), initial_rect.y(), initial_rect.width(),
            initial_rect.height(), tracker->url, tracker->frame_name,
            tracker->referrer, tracker->raw_features, tracker->body)) {
-    // TODO(zcbenz): Can we make this sync?
-    api_web_contents->DestroyWebContents(true /* async */);
+    api_web_contents->DestroyWebContents(false /* async */);
   }
 }
 
@@ -1066,22 +1067,13 @@ void WebContents::RenderFrameCreated(
     rwh_impl->disable_hidden_ = !background_throttling_;
 }
 
-void WebContents::RenderViewHostChanged(content::RenderViewHost* old_host,
-                                        content::RenderViewHost* new_host) {
-  currently_committed_process_id_ = new_host->GetProcess()->GetID();
-}
-
 void WebContents::RenderViewDeleted(content::RenderViewHost* render_view_host) {
   // This event is necessary for tracking any states with respect to
   // intermediate render view hosts aka speculative render view hosts. Currently
   // used by object-registry.js to ref count remote objects.
   Emit("render-view-deleted", render_view_host->GetProcess()->GetID());
 
-  if (-1 == currently_committed_process_id_ ||
-      render_view_host->GetProcess()->GetID() ==
-          currently_committed_process_id_) {
-    currently_committed_process_id_ = -1;
-
+  if (web_contents()->GetRenderViewHost() == render_view_host) {
     // When the RVH that has been deleted is the current RVH it means that the
     // the web contents are being closed. This is communicated by this event.
     // Currently tracked by guest-window-manager.js to destroy the
@@ -1107,7 +1099,7 @@ void WebContents::PluginCrashed(const base::FilePath& plugin_path,
   auto* plugin_service = content::PluginService::GetInstance();
   plugin_service->GetPluginInfoByPath(plugin_path, &info);
   Emit("plugin-crashed", info.name, info.version);
-#endif  // BUILDFLAG(ENABLE_PLUIGNS)
+#endif  // BUILDFLAG(ENABLE_PLUGINS)
 }
 
 void WebContents::MediaStartedPlaying(const MediaPlayerInfo& video_type,
@@ -1180,6 +1172,11 @@ void WebContents::DidStartLoading() {
 
 void WebContents::DidStopLoading() {
   Emit("did-stop-loading");
+
+  auto* web_preferences = WebContentsPreferences::From(web_contents());
+  if (web_preferences &&
+      web_preferences->IsEnabled(options::kEnablePreferredSizeMode))
+    web_contents()->GetRenderViewHost()->EnablePreferredSizeMode();
 }
 
 bool WebContents::EmitNavigationEvent(
@@ -1333,6 +1330,10 @@ void WebContents::UpdateDraggableRegions(
 
 void WebContents::RenderFrameDeleted(
     content::RenderFrameHost* render_frame_host) {
+  // A WebFrameMain can outlive its RenderFrameHost so we need to mark it as
+  // disposed to prevent access to it.
+  WebFrameMain::RenderFrameDeleted(render_frame_host);
+
   // A RenderFrameHost can be destroyed before the related Mojo binding is
   // closed, which can result in Mojo calls being sent for RenderFrameHosts
   // that no longer exist. To prevent this from happening, when a
@@ -2185,7 +2186,7 @@ void WebContents::Print(gin::Arguments* args) {
         continue;
       }
     }
-    if (page_range_list.GetList().size() > 0)
+    if (!page_range_list.GetList().empty())
       settings.SetPath(printing::kSettingPageRange, std::move(page_range_list));
   }
 
@@ -2844,6 +2845,10 @@ bool WebContents::WasInitiallyShown() {
   return initially_shown_;
 }
 
+content::RenderFrameHost* WebContents::MainFrame() {
+  return web_contents()->GetMainFrame();
+}
+
 void WebContents::GrantOriginAccess(const GURL& url) {
   content::ChildProcessSecurityPolicy::GetInstance()->GrantCommitOrigin(
       web_contents()->GetMainFrame()->GetProcess()->GetID(),
@@ -2900,6 +2905,11 @@ v8::Local<v8::Promise> WebContents::TakeHeapSnapshot(
           },
           base::Owned(std::move(electron_renderer)), std::move(promise)));
   return handle;
+}
+
+void WebContents::UpdatePreferredSize(content::WebContents* web_contents,
+                                      const gfx::Size& pref_size) {
+  Emit("preferred-size-changed", pref_size);
 }
 
 // static
@@ -3040,6 +3050,7 @@ v8::Local<v8::ObjectTemplate> WebContents::FillObjectTemplate(
       .SetProperty("devToolsWebContents", &WebContents::DevToolsWebContents)
       .SetProperty("debugger", &WebContents::Debugger)
       .SetProperty("_initiallyShown", &WebContents::WasInitiallyShown)
+      .SetProperty("mainFrame", &WebContents::MainFrame)
       .Build();
 }
 

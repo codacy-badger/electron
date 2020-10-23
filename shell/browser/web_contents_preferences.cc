@@ -76,17 +76,17 @@ bool GetAsInteger(const base::Value* val, base::StringPiece path, int* out) {
 
 bool GetAsAutoplayPolicy(const base::Value* val,
                          base::StringPiece path,
-                         blink::web_pref::AutoplayPolicy* out) {
+                         blink::mojom::AutoplayPolicy* out) {
   std::string policy_str;
   if (GetAsString(val, path, &policy_str)) {
     if (policy_str == "no-user-gesture-required") {
-      *out = blink::web_pref::AutoplayPolicy::kNoUserGestureRequired;
+      *out = blink::mojom::AutoplayPolicy::kNoUserGestureRequired;
       return true;
     } else if (policy_str == "user-gesture-required") {
-      *out = blink::web_pref::AutoplayPolicy::kUserGestureRequired;
+      *out = blink::mojom::AutoplayPolicy::kUserGestureRequired;
       return true;
     } else if (policy_str == "document-user-activation-required") {
-      *out = blink::web_pref::AutoplayPolicy::kDocumentUserActivationRequired;
+      *out = blink::mojom::AutoplayPolicy::kDocumentUserActivationRequired;
       return true;
     }
     return false;
@@ -143,9 +143,10 @@ WebContentsPreferences::WebContentsPreferences(
   SetDefaultBoolIfUndefined(options::kTextAreasAreResizable, true);
   SetDefaultBoolIfUndefined(options::kWebGL, true);
   SetDefaultBoolIfUndefined(options::kEnableWebSQL, true);
+  SetDefaultBoolIfUndefined(options::kEnablePreferredSizeMode, false);
   bool webSecurity = true;
   SetDefaultBoolIfUndefined(options::kWebSecurity, webSecurity);
-  // If webSecurity was explicity set to false, let's inherit that into
+  // If webSecurity was explicitly set to false, let's inherit that into
   // insecureContent
   if (web_preferences.Get(options::kWebSecurity, &webSecurity) &&
       !webSecurity) {
@@ -461,7 +462,7 @@ void WebContentsPreferences::OverrideWebkitPrefs(
   if (!GetAsAutoplayPolicy(&preference_, "autoplayPolicy",
                            &prefs->autoplay_policy)) {
     prefs->autoplay_policy =
-        blink::web_pref::AutoplayPolicy::kNoUserGestureRequired;
+        blink::mojom::AutoplayPolicy::kNoUserGestureRequired;
   }
 
   // Check if webgl should be enabled.

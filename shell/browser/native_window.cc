@@ -109,7 +109,7 @@ void NativeWindow::InitFromOptions(const gin_helper::Dictionary& options) {
   } else {
     SetSizeConstraints(size_constraints);
   }
-#if defined(OS_WIN) || defined(USE_X11)
+#if defined(OS_WIN) || defined(OS_LINUX)
   bool resizable;
   if (options.Get(options::kResizable, &resizable)) {
     SetResizable(resizable);
@@ -577,6 +577,13 @@ void NativeWindow::NotifyTouchBarItemInteraction(
 void NativeWindow::NotifyNewWindowForTab() {
   for (NativeWindowObserver& observer : observers_)
     observer.OnNewWindowForTab();
+}
+
+void NativeWindow::NotifyWindowSystemContextMenu(int x,
+                                                 int y,
+                                                 bool* prevent_default) {
+  for (NativeWindowObserver& observer : observers_)
+    observer.OnSystemContextMenu(x, y, prevent_default);
 }
 
 #if defined(OS_WIN)

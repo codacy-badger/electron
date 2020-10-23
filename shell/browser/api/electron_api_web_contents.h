@@ -397,6 +397,7 @@ class WebContents : public gin::Wrappable<WebContents>,
   v8::Local<v8::Value> DevToolsWebContents(v8::Isolate* isolate);
   v8::Local<v8::Value> Debugger(v8::Isolate* isolate);
   bool WasInitiallyShown();
+  content::RenderFrameHost* MainFrame();
 
   WebContentsZoomController* GetZoomController() { return zoom_controller_; }
 
@@ -550,14 +551,14 @@ class WebContents : public gin::Wrappable<WebContents>,
   content::JavaScriptDialogManager* GetJavaScriptDialogManager(
       content::WebContents* source) override;
   void OnAudioStateChanged(bool audible) override;
+  void UpdatePreferredSize(content::WebContents* web_contents,
+                           const gfx::Size& pref_size) override;
 
   // content::WebContentsObserver:
   void BeforeUnloadFired(bool proceed,
                          const base::TimeTicks& proceed_time) override;
   void RenderViewCreated(content::RenderViewHost* render_view_host) override;
   void RenderFrameCreated(content::RenderFrameHost* render_frame_host) override;
-  void RenderViewHostChanged(content::RenderViewHost* old_host,
-                             content::RenderViewHost* new_host) override;
   void RenderViewDeleted(content::RenderViewHost*) override;
   void RenderProcessGone(base::TerminationStatus status) override;
   void RenderFrameDeleted(content::RenderFrameHost* render_frame_host) override;
@@ -695,10 +696,6 @@ class WebContents : public gin::Wrappable<WebContents>,
   base::ObserverList<ExtendedWebContentsObserver> observers_;
 
   bool initially_shown_ = true;
-
-  // The ID of the process of the currently committed RenderViewHost.
-  // -1 means no speculative RVH has been committed yet.
-  int currently_committed_process_id_ = -1;
 
   service_manager::BinderRegistryWithArgs<content::RenderFrameHost*> registry_;
   mojo::ReceiverSet<mojom::ElectronBrowser, content::RenderFrameHost*>

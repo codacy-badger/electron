@@ -13,8 +13,13 @@ ifdescribe(features.isBuiltinSpellCheckerEnabled())('spellchecker', () => {
 
   beforeEach(async () => {
     w = new BrowserWindow({
-      show: false
+      show: false,
+      webPreferences: {
+        nodeIntegration: true,
+        partition: `unique-spell-${Date.now()}`
+      }
     });
+    w.webContents.session.setSpellCheckerLanguages(['en-US']);
     await w.loadFile(path.resolve(__dirname, './fixtures/chromium/spellchecker.html'));
   });
 
@@ -60,6 +65,40 @@ ifdescribe(features.isBuiltinSpellCheckerEnabled())('spellchecker', () => {
     const contextMenuParams: Electron.ContextMenuParams = (await contextMenuPromise)[1];
     expect(contextMenuParams.misspelledWord).to.eq('Beautifulllll');
     expect(contextMenuParams.dictionarySuggestions).to.have.length.of.at.least(1);
+  });
+
+  ifit(shouldRun)('should detect incorrectly spelled words as incorrect after disabling all languages and re-enabling', async () => {
+    w.webContents.session.setSpellCheckerLanguages([]);
+    await delay(500);
+    w.webContents.session.setSpellCheckerLanguages(['en-US']);
+    await w.webContents.executeJavaScript('document.body.querySelector("textarea").value = "Beautifulllll asd asd"');
+    await w.webContents.executeJavaScript('document.body.querySelector("textarea").focus()');
+    const contextMenuPromise = emittedOnce(w.webContents, 'context-menu');
+    // Wait for spellchecker to load
+    await delay(500);
+    w.webContents.sendInputEvent({
+      type: 'mouseDown',
+      button: 'right',
+      x: 43,
+      y: 42
+    });
+    const contextMenuParams: Electron.ContextMenuParams = (await contextMenuPromise)[1];
+    expect(contextMenuParams.misspelledWord).to.eq('Beautifulllll');
+    expect(contextMenuParams.dictionarySuggestions).to.have.length.of.at.least(1);
+  });
+
+  ifit(shouldRun)('should expose webFrame spellchecker correctly', async () => {
+    await w.webContents.executeJavaScript('document.body.querySelector("textarea").value = "Beautifulllll asd asd"');
+    await w.webContents.executeJavaScript('document.body.querySelector("textarea").focus()');
+    // Wait for spellchecker to load
+    await delay(500);
+
+    const callWebFrameFn = (expr: string) => w.webContents.executeJavaScript('require("electron").webFrame.' + expr);
+
+    expect(await callWebFrameFn('isWordMisspelled("test")')).to.equal(false);
+    expect(await callWebFrameFn('isWordMisspelled("testt")')).to.equal(true);
+    expect(await callWebFrameFn('getWordSuggestions("test")')).to.be.empty();
+    expect(await callWebFrameFn('getWordSuggestions("testt")')).to.not.be.empty();
   });
 
   describe('custom dictionary word list API', () => {

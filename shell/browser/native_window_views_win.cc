@@ -306,6 +306,12 @@ bool NativeWindowViews::PreHandleMSG(UINT message,
       }
       return false;
     }
+    case WM_CONTEXTMENU: {
+      bool prevent_default = false;
+      NotifyWindowSystemContextMenu(GET_X_LPARAM(l_param),
+                                    GET_Y_LPARAM(l_param), &prevent_default);
+      return prevent_default;
+    }
     default:
       return false;
   }
@@ -378,7 +384,7 @@ void NativeWindowViews::SetForwardMouseMessages(bool forward) {
 
     RemoveWindowSubclass(legacy_window_, SubclassProc, 1);
 
-    if (forwarding_windows_.size() == 0) {
+    if (forwarding_windows_.empty()) {
       UnhookWindowsHookEx(mouse_hook_);
       mouse_hook_ = NULL;
     }
