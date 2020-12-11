@@ -28,7 +28,7 @@
     "asar": "^3.0.3",
     "check-for-leaks": "^1.2.1",
     "colors": "^1.4.0",
-    "dotenv-safe": "^4.0.4",
+    "dotenv-safe": "^8.2.0",
     "dugite": "^1.45.0",
     "eslint": "^7.4.0",
     "eslint-config-standard": "^14.1.1",
